@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1786258345604,
+      "tag": "0000_large_doorman",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786263332042,
+      "tag": "0001_quiet_star_brand",
+      "breakpoints": true
+    }
+  ]
+}
