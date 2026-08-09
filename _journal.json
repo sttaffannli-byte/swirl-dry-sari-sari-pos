@@ -15,6 +15,13 @@
       "when": 1786263332042,
       "tag": "0001_quiet_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786271055700,
+      "tag": "0002_living_boom_boom",
+      "breakpoints": true
     }
   ]
 }

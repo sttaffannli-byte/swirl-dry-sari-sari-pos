@@ -34,6 +34,7 @@ type Props = {
   online: boolean;
   onAction: (action: string, data: Record<string, unknown>) => Promise<boolean>;
   onRangeChange: (from: string, to: string) => void;
+  onReprintSale: (saleId: number) => Promise<void>;
 };
 
 const peso = (value: number) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(value || 0);
@@ -47,8 +48,9 @@ const todayText = () => {
   const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
+const invoiceNumber = (sale: Pick<SaleRecord, "id" | "createdAt">) => `INV-${(sale.createdAt || todayText()).slice(0, 10).replaceAll("-", "")}-${String(sale.id).padStart(6, "0")}`;
 
-export default function Backoffice({ view, products, data, online, onAction, onRangeChange }: Props) {
+export default function Backoffice({ view, products, data, online, onAction, onRangeChange, onReprintSale }: Props) {
   const [modal, setModal] = useState<string | null>(null);
   const [selected, setSelected] = useState<EditableRecord>(null);
   const [saving, setSaving] = useState(false);
@@ -88,7 +90,7 @@ export default function Backoffice({ view, products, data, online, onAction, onR
   const filteredProducts = useMemo(() => products.filter((p) => `${p.name} ${p.barcode} ${p.category}`.toLowerCase().includes(normalizedQuery)), [products, normalizedQuery]);
   const completedSales = useMemo(() => data.sales.filter((sale) => sale.status !== "Voided"), [data.sales]);
   const filteredSales = useMemo(() => data.sales.filter((sale) => {
-    const matchesText = `${sale.receiptNo} ${sale.customerName} ${sale.cashier}`.toLowerCase().includes(normalizedQuery);
+    const matchesText = `${invoiceNumber(sale)} ${sale.receiptNo} ${sale.customerName} ${sale.cashier}`.toLowerCase().includes(normalizedQuery);
     const matchesPayment = paymentFilter === "All Payments" || sale.paymentMethod === paymentFilter;
     return matchesText && matchesPayment;
   }), [data.sales, normalizedQuery, paymentFilter]);
@@ -133,7 +135,7 @@ export default function Backoffice({ view, products, data, online, onAction, onR
 
       {view === "sales" && <>
         <div className="metric-grid four"><Metric icon="₱" label="Gross Sales" value={peso(totalSales)} note={`${completedSales.length} completed transactions`} tone="green" /><Metric icon="▤" label="Average Sale" value={peso(completedSales.length ? totalSales / completedSales.length : 0)} note="Per completed transaction" tone="blue" /><Metric icon="↙" label="Discounts" value={peso(completedSales.reduce((sum, row) => sum + row.discount, 0))} note="Total given" tone="orange" /><Metric icon="×" label="Voided" value={String(data.sales.filter((sale) => sale.status === "Voided").length)} note="Stock restored automatically" tone="purple" /></div>
-        <div className="data-card"><div className="data-toolbar"><label className="table-search">⌕<input placeholder="Search receipt, customer or cashier" value={query} onChange={(event) => setQuery(event.target.value)} /></label><select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)}><option>All Payments</option><option>Cash</option><option>GCash</option><option>Maya</option><option>Bank Transfer</option><option>Utang</option></select><button onClick={() => exportCsv("sales", filteredSales)}>⇩ Export CSV</button></div><div className="table-wrap"><table><thead><tr><th>Receipt</th><th>Date & Time</th><th>Customer</th><th>Items</th><th>Payment</th><th>Cashier</th><th>Total</th><th>Status</th><th /></tr></thead><tbody>{filteredSales.length ? filteredSales.map((sale) => <tr key={sale.id}><td><code>{sale.receiptNo}</code></td><td>{dateText(sale.createdAt)}</td><td>{sale.customerName}</td><td>{sale.itemCount}</td><td><Status tone="blue">{sale.paymentMethod}</Status></td><td>{sale.cashier}</td><td><b>{peso(sale.total)}</b></td><td><Status tone={sale.status === "Voided" ? "red" : "green"}>{sale.status}</Status></td><td>{sale.status !== "Voided" && <button className="table-button danger" onClick={() => void voidSale(sale)}>Void</button>}</td></tr>) : <EmptyRow columns={9} text="No transactions found for this date range." />}</tbody></table></div></div>
+        <div className="data-card"><div className="data-toolbar"><label className="table-search">⌕<input placeholder="Search invoice, receipt, customer or cashier" value={query} onChange={(event) => setQuery(event.target.value)} /></label><select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)}><option>All Payments</option><option>Cash</option><option>GCash</option><option>Maya</option><option>Bank Transfer</option><option>Utang</option></select><button onClick={() => exportCsv("sales", filteredSales.map((sale) => ({ invoiceNo: invoiceNumber(sale), ...sale })))}>⇩ Export CSV</button></div><div className="table-wrap"><table><thead><tr><th>Invoice No.</th><th>Receipt</th><th>Date & Time</th><th>Customer</th><th>Items</th><th>Payment</th><th>Cashier</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filteredSales.length ? filteredSales.map((sale) => <tr key={sale.id}><td><code>{invoiceNumber(sale)}</code></td><td><code>{sale.receiptNo}</code></td><td>{dateText(sale.createdAt)}</td><td>{sale.customerName}</td><td>{sale.itemCount}</td><td><Status tone="blue">{sale.paymentMethod}</Status></td><td>{sale.cashier}</td><td><b>{peso(sale.total)}</b></td><td><Status tone={sale.status === "Voided" ? "red" : "green"}>{sale.status}</Status></td><td><div className="row-actions"><button className="table-button" onClick={() => void onReprintSale(sale.id)}>Reprint</button>{sale.status !== "Voided" && <button className="table-button danger" onClick={() => void voidSale(sale)}>Void</button>}</div></td></tr>) : <EmptyRow columns={10} text="No transactions found for this date range." />}</tbody></table></div></div>
       </>}
 
       {view === "customers" && <>

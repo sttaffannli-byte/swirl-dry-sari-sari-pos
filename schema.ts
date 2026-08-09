@@ -167,5 +167,6 @@ export const storeSettings = sqliteTable("store_settings", {
   autoPrint: integer("auto_print", { mode: "boolean" }).notNull().default(false),
   soundEnabled: integer("sound_enabled", { mode: "boolean" }).notNull().default(true),
   lowStockAlerts: integer("low_stock_alerts", { mode: "boolean" }).notNull().default(true),
+  managerPinHash: text("manager_pin_hash"),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });

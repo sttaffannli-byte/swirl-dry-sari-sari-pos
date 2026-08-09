@@ -1,0 +1,1 @@
+ALTER TABLE `store_settings` ADD `manager_pin_hash` text;

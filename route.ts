@@ -32,8 +32,30 @@ const seedProducts = [
 ];
 
 const allowedPayments = new Set(["Cash", "GCash", "Maya", "Bank Transfer", "Utang"]);
+const cashierActions = new Set(["completeSale", "holdOrder", "deleteHeldOrder", "createCustomer", "endShift", "getSaleReceipt"]);
 const numberValue = (value: unknown) => Number(value ?? 0);
 const textValue = (value: unknown) => String(value ?? "").trim();
+
+async function hashText(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function managerSessionToken(pinHash: string) {
+  return hashText(`${pinHash}:swirl-dry-manager-session-v1`);
+}
+
+function cookieValue(request: Request, name: string) {
+  const cookie = request.headers.get("cookie") || "";
+  const match = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : "";
+}
+
+async function hasManagerSession(request: Request, pinHash?: string | null) {
+  if (!pinHash) return false;
+  return cookieValue(request, "sd_manager_session") === await managerSessionToken(pinHash);
+}
 
 function localDate() {
   const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -44,7 +66,9 @@ function localDate() {
 async function ensureSeeded() {
   const db = await getDb();
   const existing = await db.select({ id: products.id }).from(products).limit(1);
-  if (!existing.length) await db.insert(products).values(seedProducts);
+  if (!existing.length) {
+    for (const product of seedProducts) await db.insert(products).values(product).onConflictDoNothing();
+  }
   const employee = await db.select({ id: employees.id }).from(employees).limit(1);
   if (!employee.length) await db.insert(employees).values([
     { fullName: "Anna Marquez", role: "Admin Cashier", dailyRate: 650, workDays: 6, storeCredit: 0, status: "Active" },
@@ -110,7 +134,17 @@ export async function GET(request: Request) {
       customerTransactions: customerTransactionRows,
       supplierTransactions: supplierTransactionRows,
       stockMovements: stockRows,
-      settings: settingsRows[0],
+      settings: settingsRows[0] ? {
+        id: settingsRows[0].id,
+        businessName: settingsRows[0].businessName,
+        address: settingsRows[0].address,
+        receiptFooter: settingsRows[0].receiptFooter,
+        autoPrint: settingsRows[0].autoPrint,
+        soundEnabled: settingsRows[0].soundEnabled,
+        lowStockAlerts: settingsRows[0].lowStockAlerts,
+        updatedAt: settingsRows[0].updatedAt,
+      } : undefined,
+      managerPinConfigured: Boolean(settingsRows[0]?.managerPinHash),
       todaySummary: { count: Number(todayRows[0]?.count ?? 0), total: Number(todayRows[0]?.total ?? 0), cash: Number(todayRows[0]?.cash ?? 0) },
       range: { from, to },
     });
@@ -125,6 +159,42 @@ export async function POST(request: Request) {
     const action = textValue(payload.action);
     const data = (payload.data ?? {}) as Record<string, unknown>;
     const db = await getDb();
+
+    if (action === "managerLogout") {
+      return Response.json({ ok: true }, { headers: { "set-cookie": "sd_manager_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0" } });
+    }
+
+    if (action === "setManagerPin" || action === "verifyManagerPin") {
+      const pin = textValue(data.pin);
+      if (!/^\d{4,8}$/.test(pin)) return badRequest("Manager PIN must contain 4 to 8 numbers.");
+      const [settings] = await db.select().from(storeSettings).limit(1);
+      if (!settings) return badRequest("Store settings are not ready.");
+      const pinHash = await hashText(pin);
+      if (action === "setManagerPin") {
+        const authorized = !settings.managerPinHash || await hasManagerSession(request, settings.managerPinHash);
+        if (!authorized) return Response.json({ error: "Manager authorization is required to change the PIN." }, { status: 403 });
+        await db.update(storeSettings).set({ managerPinHash: pinHash, updatedAt: sql`CURRENT_TIMESTAMP` }).where(eq(storeSettings.id, settings.id));
+      } else if (!settings.managerPinHash || settings.managerPinHash !== pinHash) {
+        return Response.json({ error: "Incorrect manager PIN." }, { status: 401 });
+      }
+      const session = await managerSessionToken(pinHash);
+      return Response.json({ ok: true }, { headers: { "set-cookie": `sd_manager_session=${session}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=28800` } });
+    }
+
+    if (!cashierActions.has(action)) {
+      const [settings] = await db.select({ managerPinHash: storeSettings.managerPinHash }).from(storeSettings).limit(1);
+      if (!settings?.managerPinHash || !await hasManagerSession(request, settings.managerPinHash)) {
+        return Response.json({ error: "Manager access is required for this action." }, { status: 403 });
+      }
+    }
+
+    if (action === "getSaleReceipt") {
+      const saleId = numberValue(data.saleId);
+      const [sale] = await db.select().from(sales).where(eq(sales.id, saleId)).limit(1);
+      if (!sale) return badRequest("Sale not found.");
+      const items = await db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).orderBy(saleItems.id);
+      return Response.json({ sale, items });
+    }
 
     if (action === "completeSale") {
       const requestedItems = (data.items ?? []) as Array<{ productId: number; quantity: number }>;
