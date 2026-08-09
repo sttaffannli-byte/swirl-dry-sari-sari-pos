@@ -1,0 +1,10 @@
+SWIRL & DRY SARI-SARI POS
+VERSION: V5 CASHIER + RECEIPT REPRINT
+
+This is the correct Cloudflare update package.
+
+Visible checks after deployment:
+- Header shows Cashier Mode
+- Sidebar shows POS and Manager only
+- Quick bar shows Hold Sale, Recall Sale, and Reprint Last
+- Sales History shows Invoice No. and Reprint
