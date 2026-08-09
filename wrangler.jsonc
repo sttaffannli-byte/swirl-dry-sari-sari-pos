@@ -15,7 +15,7 @@
     {
       "binding": "DB",
       "database_name": "swirl-dry-sari-sari-pos-db",
-      "database_id": "00000000-0000-4000-8000-000000000000",
+      "database_id": "626287a1-24d6-460c-a4e9-a64d287926df",
       "migrations_dir": "drizzle"
     }
   ],
