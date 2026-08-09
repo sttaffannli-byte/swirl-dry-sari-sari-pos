@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vinext build",
-    "deploy": "vinext deploy",
+    "deploy": "wrangler d1 migrations apply swirl-dry-sari-sari-pos-db --remote && vinext deploy",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
