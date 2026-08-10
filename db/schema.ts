@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const products = sqliteTable("products", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -17,7 +17,10 @@ export const products = sqliteTable("products", {
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index("products_name_idx").on(table.name),
+  index("products_category_idx").on(table.category),
+]);
 
 export const sales = sqliteTable("sales", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -33,8 +36,12 @@ export const sales = sqliteTable("sales", {
   changeAmount: real("change_amount").notNull().default(0),
   itemCount: integer("item_count").notNull(),
   cashier: text("cashier").notNull().default("Anna Marquez"),
+  status: text("status").notNull().default("Completed"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index("sales_created_at_idx").on(table.createdAt),
+  index("sales_payment_method_idx").on(table.paymentMethod),
+]);
 
 export const saleItems = sqliteTable("sale_items", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -44,7 +51,7 @@ export const saleItems = sqliteTable("sale_items", {
   quantity: integer("quantity").notNull(),
   unitPrice: real("unit_price").notNull(),
   lineTotal: real("line_total").notNull(),
-});
+}, (table) => [index("sale_items_sale_id_idx").on(table.saleId)]);
 
 export const expenses = sqliteTable("expenses", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -54,7 +61,7 @@ export const expenses = sqliteTable("expenses", {
   paymentMethod: text("payment_method").notNull().default("Cash"),
   notes: text("notes").notNull().default(""),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [index("expenses_created_at_idx").on(table.createdAt)]);
 
 export const suppliers = sqliteTable("suppliers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -98,4 +105,68 @@ export const shifts = sqliteTable("shifts", {
   status: text("status").notNull().default("Open"),
   startedAt: text("started_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   endedAt: text("ended_at"),
+}, (table) => [index("shifts_started_at_idx").on(table.startedAt)]);
+
+export const customerTransactions = sqliteTable("customer_transactions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  customerId: integer("customer_id").notNull().references(() => customers.id),
+  saleId: integer("sale_id").references(() => sales.id),
+  type: text("type").notNull(),
+  amount: real("amount").notNull(),
+  paymentMethod: text("payment_method").notNull().default("Cash"),
+  referenceNo: text("reference_no"),
+  notes: text("notes").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("customer_transactions_customer_idx").on(table.customerId),
+  index("customer_transactions_created_at_idx").on(table.createdAt),
+]);
+
+export const supplierTransactions = sqliteTable("supplier_transactions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
+  type: text("type").notNull(),
+  amount: real("amount").notNull(),
+  referenceNo: text("reference_no"),
+  dueDate: text("due_date"),
+  notes: text("notes").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("supplier_transactions_supplier_idx").on(table.supplierId),
+  index("supplier_transactions_created_at_idx").on(table.createdAt),
+]);
+
+export const stockMovements = sqliteTable("stock_movements", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  productId: integer("product_id").notNull().references(() => products.id),
+  type: text("type").notNull(),
+  quantity: integer("quantity").notNull(),
+  referenceNo: text("reference_no"),
+  notes: text("notes").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("stock_movements_product_idx").on(table.productId),
+  index("stock_movements_created_at_idx").on(table.createdAt),
+]);
+
+export const heldOrders = sqliteTable("held_orders", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  label: text("label").notNull(),
+  customerId: integer("customer_id").references(() => customers.id),
+  priceMode: text("price_mode").notNull().default("retail"),
+  discount: real("discount").notNull().default(0),
+  cartJson: text("cart_json").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("held_orders_created_at_idx").on(table.createdAt)]);
+
+export const storeSettings = sqliteTable("store_settings", {
+  id: integer("id").primaryKey().default(1),
+  businessName: text("business_name").notNull().default("SWIRL-DRY AND SARI-SARI STORE"),
+  address: text("address").notNull().default("Buting, Pasig City"),
+  receiptFooter: text("receipt_footer").notNull().default("Maraming salamat po! Please come again."),
+  autoPrint: integer("auto_print", { mode: "boolean" }).notNull().default(false),
+  soundEnabled: integer("sound_enabled", { mode: "boolean" }).notNull().default(true),
+  lowStockAlerts: integer("low_stock_alerts", { mode: "boolean" }).notNull().default(true),
+  managerPinHash: text("manager_pin_hash"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
