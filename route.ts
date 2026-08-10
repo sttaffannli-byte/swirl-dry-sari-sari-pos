@@ -75,7 +75,7 @@ async function ensureSeeded() {
     { fullName: "Rica Santos", role: "Cashier", dailyRate: 600, workDays: 6, storeCredit: 180, status: "Active" },
   ]);
   const settings = await db.select({ id: storeSettings.id }).from(storeSettings).limit(1);
-  if (!settings.length) await db.insert(storeSettings).values({ id: 1 });
+  if (!settings.length) await db.insert(storeSettings).values({ id: 1, businessName: "ATE ANNA'S STORE POS" });
 }
 
 function errorResponse(error: unknown) {
@@ -247,8 +247,8 @@ export async function POST(request: Request) {
         status: "Completed",
       }).returning();
 
-      await db.insert(saleItems).values(normalizedItems.map((item) => ({ saleId: sale.id, ...item })));
       for (const item of normalizedItems) {
+        await db.insert(saleItems).values({ saleId: sale.id, ...item });
         await db.update(products).set({ stock: sql`MAX(0, ${products.stock} - ${item.quantity})`, updatedAt: sql`CURRENT_TIMESTAMP` }).where(eq(products.id, item.productId));
         await db.insert(stockMovements).values({ productId: item.productId, type: "Sale", quantity: -item.quantity, referenceNo: receiptNo });
       }
@@ -418,7 +418,7 @@ export async function POST(request: Request) {
     }
 
     if (action === "updateSettings") {
-      const [row] = await db.update(storeSettings).set({ businessName: textValue(data.businessName) || "SWIRL-DRY AND SARI-SARI STORE", address: textValue(data.address), receiptFooter: textValue(data.receiptFooter), autoPrint: Boolean(data.autoPrint), soundEnabled: Boolean(data.soundEnabled), lowStockAlerts: Boolean(data.lowStockAlerts), updatedAt: sql`CURRENT_TIMESTAMP` }).where(eq(storeSettings.id, 1)).returning();
+      const [row] = await db.update(storeSettings).set({ businessName: textValue(data.businessName) || "ATE ANNA'S STORE POS", address: textValue(data.address), receiptFooter: textValue(data.receiptFooter), autoPrint: Boolean(data.autoPrint), soundEnabled: Boolean(data.soundEnabled), lowStockAlerts: Boolean(data.lowStockAlerts), updatedAt: sql`CURRENT_TIMESTAMP` }).where(eq(storeSettings.id, 1)).returning();
       return Response.json({ settings: row });
     }
 
