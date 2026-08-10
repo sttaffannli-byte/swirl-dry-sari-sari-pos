@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Swirl & Dry Sari-Sari POS",
+  title: "Ate Anna's Store POS",
   description: "Tablet-ready sari-sari store point of sale and back office.",
   other: { "codex-preview": "development" },
 };
