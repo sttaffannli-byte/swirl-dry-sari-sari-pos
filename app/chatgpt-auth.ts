@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export type ChatGPTUser = {
-  displayName: string;
+  displayName: string;https://github.com/sttaffannli-byte/swirl-dry-sari-sari-pos/blob/main/app/chatgpt-auth.ts
   email: string;
   fullName: string | null;
 };
